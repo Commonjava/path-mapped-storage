@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import static com.datastax.driver.mapping.Mapper.Option.ifNotExists;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.util.CassandraPathDBUtils.*;
 import static org.commonjava.storage.pathmapped.util.PathMapUtils.ROOT_DIR;
@@ -246,7 +247,8 @@ public class CassandraPathDB
         else
         {
             logger.debug( "File checksum not exists, marked current file {} as primary", pathMap );
-            fileChecksumMapper.save( new DtxFileChecksum( checksum, pathMap.getFileId(), pathMap.getFileStorage() ) );
+            fileChecksumMapper.save( new DtxFileChecksum( checksum, pathMap.getFileId(), pathMap.getFileStorage() ),
+                                     ifNotExists( true ) );
         }
 
         pathMapMapper.save( (DtxPathMap) pathMap );
