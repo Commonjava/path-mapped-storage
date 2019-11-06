@@ -215,4 +215,9 @@ public class PathMappedFileManager implements Closeable
             ( (Closeable) pathDB ).close();
         }
     }
+
+    public void clearAll()
+    {
+        pathDB.clearAll();
+    }
 }

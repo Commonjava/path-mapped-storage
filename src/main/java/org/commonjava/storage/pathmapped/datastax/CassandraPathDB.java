@@ -488,4 +488,10 @@ public class CassandraPathDB
         return ret - Duration.ofHours( gcGracePeriodInHours ).toMillis();
     }
 
+    @Override
+    public void clearAll()
+    {
+        session.execute( "DROP KEYSPACE IF EXISTS " + keyspace );
+    }
+
 }
