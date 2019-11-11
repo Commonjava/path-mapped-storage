@@ -15,7 +15,6 @@
  */
 package org.commonjava.storage.pathmapped;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 import org.apache.commons.io.IOUtils;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
@@ -110,6 +109,11 @@ public abstract class AbstractCassandraFMTest
         config.setGcGracePeriodInHours( 0 );
         pathDB = new CassandraPathDB( config );
 
+        if ( !pathDB.testConn() )
+        {
+            throw new RuntimeException( "Error: cassandra has trouble to connect!" );
+        }
+
     }
 
     @AfterClass
@@ -132,8 +136,7 @@ public abstract class AbstractCassandraFMTest
     {
         File baseDir = temp.newFolder();
         baseStoragePath = baseDir.getCanonicalPath();
-        fileManager = new PathMappedFileManager( config, pathDB,
-                                                 new FileBasedPhysicalStore( baseDir ) );
+        fileManager = new PathMappedFileManager( config, pathDB, new FileBasedPhysicalStore( baseDir ) );
     }
 
     @After
@@ -146,7 +149,8 @@ public abstract class AbstractCassandraFMTest
 
     private void cleanAllData()
     {
-        if(pathDB!=null){
+        if ( pathDB != null )
+        {
             Session session = pathDB.getSession();
             session.execute( "TRUNCATE " + KEYSPACE + ".pathmap;" );
             session.execute( "TRUNCATE " + KEYSPACE + ".reversemap;" );
@@ -155,7 +159,8 @@ public abstract class AbstractCassandraFMTest
         }
     }
 
-    private void clearCommon(){
+    private void clearCommon()
+    {
         fileManager.delete( TEST_FS, path1 );
         fileManager.delete( TEST_FS, path2 );
         for ( Map.Entry<FileInfo, Boolean> entry : fileManager.gc().entrySet() )

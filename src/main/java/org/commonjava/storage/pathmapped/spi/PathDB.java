@@ -37,4 +37,8 @@ public interface PathDB
     default List<Reclaim> listOrphanedFiles() { return listOrphanedFiles( 0 ); }
 
     void removeFromReclaim( Reclaim reclaim );
+
+    default boolean testConn() {
+        return true;
+    }
 }

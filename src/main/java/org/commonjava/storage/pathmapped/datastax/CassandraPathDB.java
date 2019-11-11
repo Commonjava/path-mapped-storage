@@ -491,6 +491,22 @@ public class CassandraPathDB
         reclaimMapper.delete( (DtxReclaim) reclaim );
     }
 
+    @Override
+    public boolean testConn()
+    {
+        try
+        {
+            getSession().execute( "SELECT * FROM system_schema.keyspaces limit 1" );
+        }
+        catch ( Throwable e )
+        {
+            logger.error( "There is an error happened during connection.", e );
+            return false;
+        }
+
+        return true;
+    }
+
     private long getReclaimThreshold( Date date, int gcGracePeriodInHours )
     {
         long ret = date.getTime();
