@@ -26,6 +26,7 @@ import com.datastax.driver.mapping.Result;
 
 import com.google.common.collect.TreeTraverser;
 import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxFileChecksum;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxPath;
 import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxPathMap;
 import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxReclaim;
 import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxReverseMap;
@@ -44,14 +45,17 @@ import java.io.Closeable;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.emptySet;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.all;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.dir;
@@ -74,6 +78,8 @@ public class CassandraPathDB
     private Mapper<DtxReclaim> reclaimMapper;
 
     private Mapper<DtxFileChecksum> fileChecksumMapper;
+
+    private Mapper<DtxPath> pathMapper;
 
     private PathMappedStorageConfig config;
 
@@ -120,6 +126,7 @@ public class CassandraPathDB
         session.execute( CassandraPathDBUtils.getSchemaCreateTableReversemap( keyspace ) );
         session.execute( CassandraPathDBUtils.getSchemaCreateTableReclaim( keyspace ) );
         session.execute( CassandraPathDBUtils.getSchemaCreateTableFileChecksum( keyspace ) );
+        session.execute( CassandraPathDBUtils.getSchemaCreateTablePath( keyspace ) );
 
         MappingManager manager = new MappingManager( session );
 
@@ -127,6 +134,7 @@ public class CassandraPathDB
         reverseMapMapper = manager.mapper( DtxReverseMap.class, keyspace );
         reclaimMapper = manager.mapper( DtxReclaim.class, keyspace );
         fileChecksumMapper = manager.mapper( DtxFileChecksum.class, keyspace );
+        pathMapper = manager.mapper( DtxPath.class, keyspace );
 
         preparedSingleExistQuery = session.prepare(
                         "SELECT count(*) FROM " + keyspace + ".pathmap WHERE filesystem=? and parentpath=? and filename=?;" );
@@ -152,6 +160,17 @@ public class CassandraPathDB
     public Session getSession()
     {
         return session;
+    }
+
+    @Override
+    public Set<String> getFileSystemContaining( String path )
+    {
+        DtxPath dtxPath = pathMapper.get( path );
+        if ( dtxPath != null )
+        {
+            return dtxPath.getFileSystems();
+        }
+        return emptySet();
     }
 
     /**
@@ -400,8 +419,9 @@ public class CassandraPathDB
 
         pathMapMapper.save( (DtxPathMap) pathMap );
 
-        // insert reverse mapping
+        // insert reverse mapping and path table
         addToReverseMap( pathMap.getFileId(), PathMapUtils.marshall( fileSystem, path ) );
+        addToPath( path, fileSystem );
 
         logger.debug( "Insert finished: {}", pathMap.getFilename() );
     }
@@ -462,10 +482,7 @@ public class CassandraPathDB
         logger.debug( "Delete pathMap, {}", pathMap );
         pathMapMapper.delete( pathMap.getFileSystem(), pathMap.getParentPath(), pathMap.getFilename() );
 
-
         ReverseMap reverseMap = deleteFromReverseMap( pathMap.getFileId(), PathMapUtils.marshall( fileSystem, path ) );
-        logger.debug( "Updated reverseMap, {}", reverseMap );
-
         if ( reverseMap == null || reverseMap.getPaths() == null || reverseMap.getPaths().isEmpty() )
         {
             // clean checksum in checksum table as no file id refer to it.
@@ -478,6 +495,9 @@ public class CassandraPathDB
             // reclaim, but not remove from reverse table immediately (for race-detection/double-check)
             reclaim( fileId, pathMap.getFileStorage(), checksum );
         }
+
+        deleteFromPath( path, fileSystem );
+
         return true;
     }
 
@@ -493,6 +513,18 @@ public class CassandraPathDB
     {
         logger.debug( "Add to reverseMap, fileId: {}, path: {}", fileId, path );
         session.execute( "UPDATE " + keyspace + ".reversemap SET paths = paths + {'" + path + "'} WHERE fileid=?;", fileId );
+    }
+
+    private void deleteFromPath( String path, String fileSystem )
+    {
+        logger.debug( "Delete from path, path: {}, fileSystem: {}", path, fileSystem );
+        session.execute( "UPDATE " + keyspace + ".path SET filesystems = filesystems - {'" + fileSystem + "'} WHERE path=?;", path );
+    }
+
+    private void addToPath( String path, String fileSystem )
+    {
+        logger.debug( "Add to path, path: {}, fileSystem: {}", path, fileSystem );
+        session.execute( "UPDATE " + keyspace + ".path SET filesystems = filesystems + {'" + fileSystem + "'} WHERE path=?;", path );
     }
 
     private void reclaim( String fileId, String fileStorage, String checksum )
@@ -542,18 +574,12 @@ public class CassandraPathDB
             delete( toFileSystem, toPath );
         }
 
-        // check parent paths
-        String fromParentPath = PathMapUtils.getParentPath( fromPath );
         String toParentPath = PathMapUtils.getParentPath( toPath );
-        if ( fromParentPath != null && !fromParentPath.equals( toParentPath ) )
-        {
-            makeDirs( toFileSystem, toParentPath );
-        }
-
         String toFilename = PathMapUtils.getFilename( toPath );
-        pathMapMapper.save( new DtxPathMap( toFileSystem, toParentPath, toFilename, pathMap.getFileId(),
-                                            pathMap.getCreation(), pathMap.getExpiration(), pathMap.getSize(),
-                                            pathMap.getFileStorage(), pathMap.getChecksum() ) );
+        target = new DtxPathMap( toFileSystem, toParentPath, toFilename, pathMap.getFileId(), pathMap.getCreation(),
+                                 pathMap.getExpiration(), pathMap.getSize(), pathMap.getFileStorage(),
+                                 pathMap.getChecksum() );
+        insert( target );
         return true;
     }
 

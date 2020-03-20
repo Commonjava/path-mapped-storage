@@ -79,4 +79,15 @@ public class CassandraPathDBUtils
                         + "PRIMARY KEY (checksum)"
                         + ");";
     }
+
+    public static String getSchemaCreateTablePath( String keyspace )
+    {
+        return "CREATE TABLE IF NOT EXISTS " + keyspace + ".path ("
+                        + "path varchar,"
+                        + "filesystems set<text>,"
+                        + "lastmodify timestamp,"
+                        + "PRIMARY KEY (path)"
+                        + ");";
+    }
+
 }

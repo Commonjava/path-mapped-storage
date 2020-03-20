@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -98,6 +99,12 @@ public class MeasuredPathDB
     public boolean delete( String fileSystem, String path )
     {
         return measure( () -> decorated.delete( fileSystem, path ), "delete" );
+    }
+
+    @Override
+    public Set<String> getFileSystemContaining( String path )
+    {
+        return measure( () -> decorated.getFileSystemContaining( path ), "getFileSystemContaining" );
     }
 
     @Override
