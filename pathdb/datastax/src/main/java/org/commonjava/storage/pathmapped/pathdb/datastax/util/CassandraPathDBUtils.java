@@ -85,7 +85,6 @@ public class CassandraPathDBUtils
         return "CREATE TABLE IF NOT EXISTS " + keyspace + ".path ("
                         + "path varchar,"
                         + "filesystems set<text>,"
-                        + "lastmodify timestamp,"
                         + "PRIMARY KEY (path)"
                         + ");";
     }

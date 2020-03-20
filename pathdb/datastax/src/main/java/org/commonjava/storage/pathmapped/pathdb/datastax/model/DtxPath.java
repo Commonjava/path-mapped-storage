@@ -19,9 +19,9 @@ import com.datastax.driver.mapping.annotations.Column;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
 
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 @Table( name = "path", readConsistency = "QUORUM", writeConsistency = "QUORUM" )
 public class DtxPath
@@ -32,18 +32,14 @@ public class DtxPath
     @Column
     private HashSet<String> fileSystems;
 
-    @Column
-    private Date lastModify;
-
     public DtxPath()
     {
     }
 
-    public DtxPath( String path, HashSet<String> fileSystems, Date lastModify )
+    public DtxPath( String path, HashSet<String> fileSystems )
     {
         this.path = path;
         this.fileSystems = fileSystems;
-        this.lastModify = lastModify;
     }
 
     @Override
@@ -67,7 +63,7 @@ public class DtxPath
         this.path = path;
     }
 
-    public HashSet<String> getFileSystems()
+    public Set<String> getFileSystems()
     {
         return fileSystems;
     }
@@ -75,16 +71,6 @@ public class DtxPath
     public void setFileSystems( HashSet<String> fileSystems )
     {
         this.fileSystems = fileSystems;
-    }
-
-    public Date getLastModify()
-    {
-        return lastModify;
-    }
-
-    public void setLastModify( Date lastModify )
-    {
-        this.lastModify = lastModify;
     }
 
     @Override
@@ -96,7 +82,6 @@ public class DtxPath
     @Override
     public String toString()
     {
-        return "DtxPath{" + "path='" + path + '\'' + ", fileSystems=" + fileSystems + ", lastModify=" + lastModify
-                        + '}';
+        return "DtxPath{" + "path='" + path + '\'' + ", fileSystems=" + fileSystems + '}';
     }
 }
