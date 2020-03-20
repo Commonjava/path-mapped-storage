@@ -34,6 +34,9 @@ public class QueryByPathTest
         writeWithContent( fileManager.openOutputStream( repo1, path1 ), simpleContent );
         writeWithContent( fileManager.openOutputStream( repo2, path1 ), simpleContent );
 
+        // repeat insert should not affect
+        writeWithContent( fileManager.openOutputStream( repo1, path1 ), simpleContent );
+
         // insert two
         Set<String> ret = fileManager.getFileSystemContaining( path1 );
         System.out.println( ">>> " + ret );
