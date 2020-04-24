@@ -73,11 +73,11 @@ public class ListingTest
     public void listHugeNumOfEntries()
             throws IOException
     {
-        int numOfFiles = 500;
+        int numOfFiles = 20000;
         String[] files = new String[numOfFiles];
         for ( int i = 0; i < numOfFiles; i++ )
         {
-            files[i] = "file" + i + ".txt";
+            files[i] = "file-" + i + ".txt";
             String filePath = pathSub1 + "/" + files[i];
             writeWithContent( fileManager.openOutputStream( TEST_FS, filePath ), simpleContent );
         }
