@@ -503,7 +503,7 @@ public class CassandraPathDB
             }
         }
 
-        pathMapMapper.save( (DtxPathMap) pathMap );
+        pathMapMapper.save( (DtxPathMap) pathMap, Mapper.Option.consistencyLevel( ConsistencyLevel.ALL ) );
 
         // insert reverse mapping and path table
         addToReverseMap( pathMap.getFileId(), PathMapUtils.marshall( fileSystem, path ) );
