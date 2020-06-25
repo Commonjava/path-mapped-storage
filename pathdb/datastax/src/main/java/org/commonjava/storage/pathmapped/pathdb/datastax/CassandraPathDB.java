@@ -91,7 +91,7 @@ public class CassandraPathDB
     private PreparedStatement preparedExistQuery, preparedListQuery, preparedContainingQuery, preparedExistFileQuery,
                     preparedReverseMapIncrement, preparedReverseMapReduction;
 
-    // r consistency level defaults to ONE for all write and read operations
+    // r level defaults to ONE for low latency (which is also Datastax's default behaviour for all write and read operations)
     private ConsistencyLevel pathmapReadLevel = ONE;
 
     // w level to ALL to avoid data inconsistency, because we often checks file existence right after writing
