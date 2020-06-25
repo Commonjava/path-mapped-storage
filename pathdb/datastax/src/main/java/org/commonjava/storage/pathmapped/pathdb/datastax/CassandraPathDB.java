@@ -91,7 +91,7 @@ public class CassandraPathDB
     private PreparedStatement preparedExistQuery, preparedListQuery, preparedContainingQuery, preparedExistFileQuery,
                     preparedReverseMapIncrement, preparedReverseMapReduction;
 
-    // r level defaults to ONE for low latency (which is also Datastax's default behaviour for all write and read operations)
+    // r level defaults to ONE for low latency (which is also Datastax's default behaviour for all r/w operations)
     private ConsistencyLevel pathmapReadLevel = ONE;
 
     // w level to ALL to avoid data inconsistency, because we often checks file existence right after writing
@@ -156,24 +156,17 @@ public class CassandraPathDB
         preparedContainingQuery = session.prepare( "SELECT filesystem FROM " + keyspace
                                                                    + ".pathmap WHERE filesystem IN ? and parentpath=? and filename=?;" );
 
-        preparedReverseMapIncrement =
-                        session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths + ? WHERE fileid=?;" );
-
-        preparedReverseMapReduction =
-                        session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths - ? WHERE fileid=?;" );
-
-        setConsistencyLevels();
-    }
-
-    private void setConsistencyLevels()
-    {
         preparedExistFileQuery.setConsistencyLevel( pathmapReadLevel );
         preparedExistQuery.setConsistencyLevel( pathmapReadLevel );
         preparedListQuery.setConsistencyLevel( pathmapReadLevel );
         preparedContainingQuery.setConsistencyLevel( pathmapReadLevel );
 
-        // Set w level to ONE for reverse table because this is not in critical path
+        preparedReverseMapIncrement =
+                        session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths + ? WHERE fileid=?;" );
         preparedReverseMapIncrement.setConsistencyLevel( ONE );
+
+        preparedReverseMapReduction =
+                        session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths - ? WHERE fileid=?;" );
         preparedReverseMapReduction.setConsistencyLevel( ONE );
     }
 
