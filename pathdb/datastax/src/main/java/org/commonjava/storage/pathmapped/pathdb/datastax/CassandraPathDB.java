@@ -58,6 +58,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.datastax.driver.core.ConsistencyLevel.ALL;
+import static com.datastax.driver.core.ConsistencyLevel.ONE;
 import static java.util.Collections.emptySet;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.all;
@@ -89,12 +91,18 @@ public class CassandraPathDB
     private PreparedStatement preparedExistQuery, preparedListQuery, preparedContainingQuery, preparedExistFileQuery,
                     preparedReverseMapIncrement, preparedReverseMapReduction;
 
+    // r consistency level defaults to ONE for all write and read operations
+    private ConsistencyLevel pathmapReadLevel = ONE;
+
+    // w level to ALL to avoid data inconsistency, because we often checks file existence right after writing
+    private ConsistencyLevel pathmapWriteLevel = ALL;
+
     public CassandraPathDB( PathMappedStorageConfig config, Session session, String keyspace )
     {
         this.config = config;
         this.keyspace = keyspace;
         this.session = session;
-        prepare( session, keyspace );
+        prepare();
     }
 
     public CassandraPathDB( PathMappedStorageConfig config )
@@ -118,10 +126,10 @@ public class CassandraPathDB
         session = cluster.connect();
 
         keyspace = (String) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_KEYSPACE );
-        prepare( session, keyspace );
+        prepare();
     }
 
-    private void prepare( Session session, String keyspace )
+    private void prepare()
     {
         session.execute( CassandraPathDBUtils.getSchemaCreateKeyspace( keyspace ) );
         session.execute( CassandraPathDBUtils.getSchemaCreateTablePathmap( keyspace ) );
@@ -150,11 +158,23 @@ public class CassandraPathDB
 
         preparedReverseMapIncrement =
                         session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths + ? WHERE fileid=?;" );
-        preparedReverseMapIncrement.setConsistencyLevel( ConsistencyLevel.ONE );
 
         preparedReverseMapReduction =
                         session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths - ? WHERE fileid=?;" );
-        preparedReverseMapReduction.setConsistencyLevel( ConsistencyLevel.ONE );
+
+        setConsistencyLevels();
+    }
+
+    private void setConsistencyLevels()
+    {
+        preparedExistFileQuery.setConsistencyLevel( pathmapReadLevel );
+        preparedExistQuery.setConsistencyLevel( pathmapReadLevel );
+        preparedListQuery.setConsistencyLevel( pathmapReadLevel );
+        preparedContainingQuery.setConsistencyLevel( pathmapReadLevel );
+
+        // Set w level to ONE for reverse table because this is not in critical path
+        preparedReverseMapIncrement.setConsistencyLevel( ONE );
+        preparedReverseMapReduction.setConsistencyLevel( ONE );
     }
 
     @Override
@@ -503,7 +523,7 @@ public class CassandraPathDB
             }
         }
 
-        pathMapMapper.save( (DtxPathMap) pathMap, Mapper.Option.consistencyLevel( ConsistencyLevel.ALL ) );
+        pathMapMapper.save( (DtxPathMap) pathMap, Mapper.Option.consistencyLevel( pathmapWriteLevel ) );
 
         // insert reverse mapping and path table
         addToReverseMap( pathMap.getFileId(), PathMapUtils.marshall( fileSystem, path ) );
