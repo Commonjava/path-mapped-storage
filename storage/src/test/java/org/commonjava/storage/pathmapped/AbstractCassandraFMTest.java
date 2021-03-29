@@ -62,7 +62,7 @@ public abstract class AbstractCassandraFMTest
     @Rule
     public TestName name = new TestName();
 
-    private static CassandraPathDB pathDB;
+    static CassandraPathDB pathDB;
 
     Session session;
 
@@ -78,7 +78,7 @@ public abstract class AbstractCassandraFMTest
 
     private String baseStoragePath;
 
-    private static DefaultPathMappedStorageConfig config;
+    static DefaultPathMappedStorageConfig config;
 
     private final String root = "/root";
 
@@ -141,12 +141,16 @@ public abstract class AbstractCassandraFMTest
     {
         File baseDir = temp.newFolder();
         baseStoragePath = baseDir.getCanonicalPath();
-        fileManager = new PathMappedFileManager( config, pathDB,
-                                                 new FileBasedPhysicalStore( baseDir ) );
+        fileManager = initiateFileManager(baseDir);
         session = pathDB.getSession();
         MappingManager manager = new MappingManager( session );
         pathMapMapper = manager.mapper( DtxPathMap.class, KEYSPACE );
         reverseMapMapper = manager.mapper( DtxReverseMap.class, KEYSPACE );
+    }
+
+    protected PathMappedFileManager initiateFileManager( File baseDir )
+    {
+        return new PathMappedFileManager( config, pathDB, new FileBasedPhysicalStore( baseDir ) );
     }
 
     @After
@@ -157,7 +161,7 @@ public abstract class AbstractCassandraFMTest
         cleanAllData();
     }
 
-    private void cleanAllData()
+    protected void cleanAllData()
     {
         if ( pathDB != null )
         {

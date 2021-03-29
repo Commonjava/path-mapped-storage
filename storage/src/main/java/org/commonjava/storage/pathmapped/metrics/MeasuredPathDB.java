@@ -18,9 +18,8 @@ package org.commonjava.storage.pathmapped.metrics;
 import org.commonjava.o11yphant.metrics.MetricsManager;
 import org.commonjava.storage.pathmapped.model.PathMap;
 import org.commonjava.storage.pathmapped.model.Reclaim;
+import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PathDB;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Date;
@@ -136,6 +135,12 @@ public class MeasuredPathDB
     public boolean copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath )
     {
         return measure( () -> decorated.copy( fromFileSystem, fromPath, toFileSystem, toPath ), "copy" );
+    }
+
+    @Override
+    public boolean copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath, FileInfo fileInfo )
+    {
+        return measure( () -> decorated.copy( fromFileSystem, fromPath, toFileSystem, toPath, fileInfo ), "hardCopy" );
     }
 
     @Override

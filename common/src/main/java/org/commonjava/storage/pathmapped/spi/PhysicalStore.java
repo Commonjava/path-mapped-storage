@@ -30,4 +30,6 @@ public interface PhysicalStore
     boolean exists( String storageFile );
 
     boolean delete( FileInfo fileInfo );
+
+    void copy( String srcFileStorage, String targetFileStorage ) throws IOException;
 }

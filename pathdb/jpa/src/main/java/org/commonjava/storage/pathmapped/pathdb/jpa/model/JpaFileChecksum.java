@@ -23,6 +23,8 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 import java.util.Objects;
 
+import static org.commonjava.storage.pathmapped.spi.StorageClassifier.DEFAULT_STORAGE_LEVEL;
+
 @Entity
 @Table( name = "filechecksum" )
 public class JpaFileChecksum
@@ -46,6 +48,12 @@ public class JpaFileChecksum
         this.checksum = checksum;
         this.fileId = fileId;
         this.storage = storage;
+    }
+
+    @Override
+    public String getStorageLevel()
+    {
+        return DEFAULT_STORAGE_LEVEL;
     }
 
     public String getFileId()

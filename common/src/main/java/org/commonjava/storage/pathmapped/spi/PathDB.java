@@ -52,7 +52,16 @@ public interface PathDB
 
     String getStorageFile( String fileSystem, String path );
 
+    /**
+     * Perform db-only copy.
+     */
     boolean copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath );
+
+    /**
+     * Perform hard copy.
+     * @param target hard copy target, including new fileId and new storageFile.
+     */
+    boolean copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath, FileInfo target );
 
     void makeDirs( String fileSystem, String path );
 

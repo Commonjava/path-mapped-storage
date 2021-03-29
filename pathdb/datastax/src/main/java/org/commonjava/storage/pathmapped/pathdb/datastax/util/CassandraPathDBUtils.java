@@ -77,9 +77,10 @@ public class CassandraPathDBUtils
     {
         return "CREATE TABLE IF NOT EXISTS " + keyspace + ".filechecksum ("
                         + "checksum varchar,"
+                        + "storagelevel varchar,"
                         + "fileid varchar,"
                         + "storage varchar,"
-                        + "PRIMARY KEY (checksum)"
+                        + "PRIMARY KEY (checksum, storagelevel)"
                         + ");";
     }
 }
