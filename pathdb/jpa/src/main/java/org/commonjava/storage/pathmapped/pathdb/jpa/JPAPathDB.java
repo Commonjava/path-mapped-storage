@@ -23,6 +23,7 @@ import org.commonjava.storage.pathmapped.pathdb.jpa.model.JpaReverseMap;
 import org.commonjava.storage.pathmapped.model.PathMap;
 import org.commonjava.storage.pathmapped.model.Reclaim;
 import org.commonjava.storage.pathmapped.model.ReverseMap;
+import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PathDB;
 import org.commonjava.storage.pathmapped.util.PathMapUtils;
 import org.slf4j.Logger;
@@ -302,6 +303,12 @@ public class JPAPathDB
                                                    pathMap.getFileStorage(), "" ) );
         } );
         return true;
+    }
+
+    @Override
+    public boolean copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath, FileInfo target )
+    {
+        return copy( fromFileSystem, fromPath, toFileSystem, toPath );
     }
 
     @Override

@@ -17,7 +17,6 @@ package org.commonjava.storage.pathmapped.pathdb.datastax;
 
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
@@ -37,7 +36,9 @@ import org.commonjava.storage.pathmapped.model.FileChecksum;
 import org.commonjava.storage.pathmapped.model.PathMap;
 import org.commonjava.storage.pathmapped.model.Reclaim;
 import org.commonjava.storage.pathmapped.model.ReverseMap;
+import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PathDB;
+import org.commonjava.storage.pathmapped.spi.StorageClassifier;
 import org.commonjava.storage.pathmapped.util.PathMapUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,7 @@ import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.all;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.dir;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.file;
+import static org.commonjava.storage.pathmapped.spi.StorageClassifier.DEFAULT_STORAGE_LEVEL;
 import static org.commonjava.storage.pathmapped.util.PathMapUtils.ROOT_DIR;
 
 public class CassandraPathDB
@@ -86,6 +88,8 @@ public class CassandraPathDB
 
     private PathMappedStorageConfig config;
 
+    private StorageClassifier storageClassifier;
+
     private final String keyspace;
 
     private int replicationFactor = 1; // keyspace replica, default 1
@@ -96,15 +100,17 @@ public class CassandraPathDB
     @Deprecated
     public CassandraPathDB( PathMappedStorageConfig config, Session session, String keyspace )
     {
-        this( config, session, keyspace, 1 );
+        this( config, session, keyspace, 1, null );
     }
 
-    public CassandraPathDB( PathMappedStorageConfig config, Session session, String keyspace, int replicationFactor )
+    public CassandraPathDB( PathMappedStorageConfig config, Session session, String keyspace, int replicationFactor,
+                            StorageClassifier storageClassifier )
     {
         this.config = config;
         this.keyspace = keyspace;
         this.session = session;
         this.replicationFactor = replicationFactor;
+        this.storageClassifier = storageClassifier;
         prepare( session, keyspace, replicationFactor );
     }
 
@@ -489,44 +495,58 @@ public class CassandraPathDB
         makeDirs( fileSystem, parent );
 
         String path = PathMapUtils.normalize( parent, pathMap.getFilename() );
+
+        // Delete old entry if exists
         PathMap prev = getPathMap( fileSystem, path );
-        final boolean existedPathMap = prev != null;
-        if ( existedPathMap )
+        final boolean exists = ( prev != null );
+        if ( exists )
         {
             delete( fileSystem, path );
         }
 
+        // De-dup by checksum
         String checksum = pathMap.getChecksum();
-
         if ( isNotBlank( checksum ) )
         {
-            final FileChecksum existedChecksum = fileChecksumMapper.get( checksum );
-
-            if ( existedChecksum != null )
+            final String storageLevel = getStorageLevel( fileSystem );
+            final FileChecksum existed = fileChecksumMapper.get( checksum, storageLevel );
+            if ( existed != null )
             {
-                logger.info( "File checksum conflict, should use existed file storage" );
                 final String deprecatedStorage = pathMap.getFileStorage();
-                ( (DtxPathMap) pathMap ).setFileStorage( existedChecksum.getStorage() );
-                ( (DtxPathMap) pathMap ).setFileId( existedChecksum.getFileId() );
-                ( (DtxPathMap) pathMap ).setChecksum( existedChecksum.getChecksum() );
-                // Need to mark the generated file storage path as reclaimed to remove it.
+                final String storage = existed.getStorage();
+
+                DtxPathMap dtxPathMap = (DtxPathMap) pathMap;
+                dtxPathMap.setFileStorage( storage );
+                dtxPathMap.setFileId( existed.getFileId() );
+                logger.info( "File checksum exists, use existing storage: {}", storage );
+
+                // Reclaim deprecated fileId/storageFile
                 final String deprecatedFileId = PathMapUtils.getRandomFileId();
                 reclaim( deprecatedFileId, deprecatedStorage, checksum );
             }
             else
             {
-                logger.debug( "File checksum not exists, marked current file {} as primary", pathMap );
-                fileChecksumMapper.save(
-                        new DtxFileChecksum( checksum, pathMap.getFileId(), pathMap.getFileStorage() ) );
+                logger.debug( "File checksum not exists, mark current file {} as primary", pathMap );
+                fileChecksumMapper.save( new DtxFileChecksum( checksum, storageLevel, pathMap.getFileId(),
+                                                              pathMap.getFileStorage() ) );
             }
         }
 
         pathMapMapper.save( (DtxPathMap) pathMap );
 
-        // insert reverse mapping and path table
+        // Insert reverse mapping
         addToReverseMap( pathMap.getFileId(), PathMapUtils.marshall( fileSystem, path ) );
 
         logger.debug( "Insert finished: {}", pathMap.getFilename() );
+    }
+
+    private String getStorageLevel( String fileSystem )
+    {
+        if ( storageClassifier != null )
+        {
+            return storageClassifier.getStorageLevel( fileSystem );
+        }
+        return DEFAULT_STORAGE_LEVEL;
     }
 
     @Override
@@ -592,7 +612,7 @@ public class CassandraPathDB
             if ( isNotBlank( checksum ) )
             {
                 logger.debug( "Delete file checksum, {}", checksum );
-                fileChecksumMapper.delete( checksum );
+                fileChecksumMapper.delete( checksum, getStorageLevel( fileSystem ) );
             }
             // reclaim, but not remove from reverse table immediately (for race-detection/double-check)
             reclaim( fileId, pathMap.getFileStorage(), checksum );
@@ -664,18 +684,43 @@ public class CassandraPathDB
             return false;
         }
 
-        PathMap target = getPathMap( toFileSystem, toPath );
-        if ( target != null )
+        String toParentPath = PathMapUtils.getParentPath( toPath );
+        String toFilename = PathMapUtils.getFilename( toPath );
+        DtxPathMap target = new DtxPathMap( toFileSystem, toParentPath, toFilename, pathMap.getFileId(),
+                                            pathMap.getCreation(), pathMap.getExpiration(), pathMap.getSize(),
+                                            pathMap.getFileStorage(), pathMap.getChecksum() );
+
+        insert( target );
+        return true;
+    }
+
+    @Override
+    public boolean copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath, FileInfo fileInfo )
+    {
+        PathMap pathMap = getPathMap( fromFileSystem, fromPath );
+        if ( pathMap == null )
         {
-            logger.info( "Target already exists, delete it. {}:{}", toFileSystem, toPath );
-            delete( toFileSystem, toPath );
+            logger.warn( "Source not found, {}:{}", fromFileSystem, fromPath );
+            return false;
         }
 
         String toParentPath = PathMapUtils.getParentPath( toPath );
         String toFilename = PathMapUtils.getFilename( toPath );
-        target = new DtxPathMap( toFileSystem, toParentPath, toFilename, pathMap.getFileId(), pathMap.getCreation(),
-                                 pathMap.getExpiration(), pathMap.getSize(), pathMap.getFileStorage(),
-                                 pathMap.getChecksum() );
+
+        // Calculate new expiration
+        Date expiration = pathMap.getExpiration();
+        Date creation = pathMap.getCreation();
+        if ( expiration != null )
+        {
+            long duration = expiration.getTime() - creation.getTime();
+            creation = new Date();
+            expiration = new Date( creation.getTime() + duration );
+        }
+
+        DtxPathMap target = new DtxPathMap( toFileSystem, toParentPath, toFilename, fileInfo.getFileId(), creation,
+                                            expiration, pathMap.getSize(), fileInfo.getFileStorage(),
+                                            pathMap.getChecksum() );
+
         insert( target );
         return true;
     }

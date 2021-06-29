@@ -15,6 +15,7 @@
  */
 package org.commonjava.storage.pathmapped.core;
 
+import org.apache.commons.io.FileUtils;
 import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PhysicalStore;
 import org.slf4j.Logger;
@@ -35,7 +36,7 @@ public class FileBasedPhysicalStore implements PhysicalStore
 {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
 
-    private final File baseDir;
+    protected final File baseDir;
 
     public FileBasedPhysicalStore( File baseDir )
     {
@@ -46,7 +47,7 @@ public class FileBasedPhysicalStore implements PhysicalStore
     public FileInfo getFileInfo( String fileSystem, String path )
     {
         String id = getRandomFileId();
-        String dir = getStorageDir( id );
+        String dir = getStorageDir( fileSystem, id );
         FileInfo fileInfo = new FileInfo();
         fileInfo.setFileId( id );
         fileInfo.setFileStorage( Paths.get( dir, id ).toString() );
@@ -59,7 +60,7 @@ public class FileBasedPhysicalStore implements PhysicalStore
 
     private static final int DIR_LENGTH = LEVEL_1_DIR_LENGTH + LEVEL_2_DIR_LENGTH;
 
-    private String getStorageDir( String fileId )
+    protected String getStorageDir( String fileSystem, String fileId )
     {
         String folder = fileId.substring( 0, LEVEL_1_DIR_LENGTH );
         String subFolder = fileId.substring( LEVEL_1_DIR_LENGTH, DIR_LENGTH );
@@ -104,6 +105,12 @@ public class FileBasedPhysicalStore implements PhysicalStore
             return false;
         }
         return true;
+    }
+
+    @Override
+    public void copy( String srcFileStorage, String targetFileStorage ) throws IOException
+    {
+        FileUtils.copyFile( new File( baseDir, srcFileStorage ), new File( baseDir, targetFileStorage ) );
     }
 
     @Override

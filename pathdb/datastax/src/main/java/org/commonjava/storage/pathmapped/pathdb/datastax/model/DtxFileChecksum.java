@@ -15,6 +15,7 @@
  */
 package org.commonjava.storage.pathmapped.pathdb.datastax.model;
 
+import com.datastax.driver.mapping.annotations.ClusteringColumn;
 import com.datastax.driver.mapping.annotations.Column;
 import com.datastax.driver.mapping.annotations.PartitionKey;
 import com.datastax.driver.mapping.annotations.Table;
@@ -29,6 +30,9 @@ public class DtxFileChecksum
     @PartitionKey
     private String checksum;
 
+    @ClusteringColumn
+    private String storageLevel;
+
     @Column
     private String fileId;
 
@@ -39,11 +43,23 @@ public class DtxFileChecksum
     {
     }
 
-    public DtxFileChecksum( String checksum, String fileId, String storage )
+    public DtxFileChecksum( String checksum, String storageLevel, String fileId, String storage )
     {
         this.checksum = checksum;
+        this.storageLevel = storageLevel;
         this.fileId = fileId;
         this.storage = storage;
+    }
+
+    @Override
+    public String getStorageLevel()
+    {
+        return storageLevel;
+    }
+
+    public void setStorageLevel( String storageLevel )
+    {
+        this.storageLevel = storageLevel;
     }
 
     public String getFileId()
@@ -85,12 +101,12 @@ public class DtxFileChecksum
         if ( o == null || getClass() != o.getClass() )
             return false;
         DtxFileChecksum that = (DtxFileChecksum) o;
-        return checksum.equals( that.checksum );
+        return checksum.equals( that.checksum ) && storageLevel.equals( that.storageLevel );
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash( checksum );
+        return Objects.hash( checksum, storageLevel );
     }
 }

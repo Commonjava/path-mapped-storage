@@ -17,6 +17,8 @@ package org.commonjava.storage.pathmapped.model;
 
 public interface FileChecksum
 {
+    String getStorageLevel();
+
     String getFileId();
 
     String getChecksum();

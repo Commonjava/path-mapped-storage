@@ -21,6 +21,7 @@ import org.commonjava.storage.pathmapped.model.Reclaim;
 import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PathDB;
 import org.commonjava.storage.pathmapped.spi.PhysicalStore;
+import org.commonjava.storage.pathmapped.spi.StorageClassifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.commons.lang.StringUtils.isBlank;
 import static org.commonjava.storage.pathmapped.util.PathMapUtils.ROOT_DIR;
+import static org.commonjava.storage.pathmapped.util.PathMapUtils.marshall;
 
 public class PathMappedFileManager implements Closeable
 {
@@ -57,6 +59,15 @@ public class PathMappedFileManager implements Closeable
     private ScheduledExecutorService gcThreadPool;
 
     private String deduplicatePattern;
+
+    private StorageClassifier storageClassifier;
+
+    public PathMappedFileManager( PathMappedStorageConfig config, PathDB pathDB, PhysicalStore physicalStore,
+                                  StorageClassifier storageClassifier )
+    {
+        this( config, pathDB, physicalStore );
+        this.storageClassifier = storageClassifier;
+    }
 
     public PathMappedFileManager( PathMappedStorageConfig config, PathDB pathDB, PhysicalStore physicalStore )
     {
@@ -317,9 +328,29 @@ public class PathMappedFileManager implements Closeable
         return pathDB.isFile( fileSystem, path );
     }
 
-    public void copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath )
+    public void copy( String fromFileSystem, String fromPath, String toFileSystem, String toPath ) throws IOException
     {
-        pathDB.copy( fromFileSystem, fromPath, toFileSystem, toPath );
+        logger.debug( "Copy from {} to: {}", marshall( fromFileSystem, fromPath ), marshall( toFileSystem, toPath ) );
+
+        boolean hardCopy = isHardCopy( fromFileSystem, toFileSystem );
+        if ( hardCopy )
+        {
+            String srcStorageFile = pathDB.getStorageFile( fromFileSystem, fromPath );
+            FileInfo target = physicalStore.getFileInfo( toFileSystem, toPath );
+            logger.debug( "Perform hard copy, src: {}, target: {}", srcStorageFile, target );
+            physicalStore.copy( srcStorageFile, target.getFileStorage() );
+
+            pathDB.copy( fromFileSystem, fromPath, toFileSystem, toPath, target );
+        }
+        else
+        {
+            pathDB.copy( fromFileSystem, fromPath, toFileSystem, toPath );
+        }
+    }
+
+    private boolean isHardCopy( String fromFileSystem, String toFileSystem )
+    {
+        return storageClassifier != null && storageClassifier.isDifferentLevel( fromFileSystem, toFileSystem );
     }
 
     public void makeDirs( String fileSystem, String path )
