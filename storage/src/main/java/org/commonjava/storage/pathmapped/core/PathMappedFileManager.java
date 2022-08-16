@@ -15,6 +15,7 @@
  */
 package org.commonjava.storage.pathmapped.core;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.commonjava.storage.pathmapped.config.PathMappedStorageConfig;
 import org.commonjava.storage.pathmapped.model.Filesystem;
 import org.commonjava.storage.pathmapped.model.PathMap;
@@ -26,11 +27,7 @@ import org.commonjava.storage.pathmapped.spi.PhysicalStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -42,6 +39,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.commons.lang.StringUtils.isBlank;
+import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.util.PathMapUtils.ROOT_DIR;
 
 public class PathMappedFileManager implements Closeable
@@ -57,8 +55,6 @@ public class PathMappedFileManager implements Closeable
     private final String commonFileExtensions;
 
     private ScheduledExecutorService gcThreadPool;
-
-    private String deduplicatePattern;
 
     public PathMappedFileManager( PathMappedStorageConfig config, PathDB pathDB, PhysicalStore physicalStore )
     {
@@ -76,8 +72,6 @@ public class PathMappedFileManager implements Closeable
                 gc();
             }, initialDelay, gcIntervalInMinutes, TimeUnit.MINUTES );
         }
-
-        deduplicatePattern = config.getDeduplicatePattern();
 
         commonFileExtensions = config.getCommonFileExtensions();
     }
@@ -101,13 +95,39 @@ public class PathMappedFileManager implements Closeable
         return pathDB.getFirstFileSystemContaining( candidates, path );
     }
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     public InputStream openInputStream( String fileSystem, String path ) throws IOException
     {
         String storageFile = pathDB.getStorageFile( fileSystem, path );
         if ( storageFile == null )
         {
-            throw new IOException( String.format(
-                    "Could not open input stream to for path %s - %s: path-mapped file does not exist.", fileSystem, path) );
+            if ( isChecksumFile(path) )
+            {
+                int index = path.lastIndexOf("." );
+                String ext = path.substring( index + 1 );
+                String original = path.substring( 0, index );
+                PathMap pathMap = pathDB.getPathMap(fileSystem, original);
+                String checksum = pathMap.getChecksum();
+                if ( isNotBlank( checksum ) )
+                {
+                    Map<String, String> map = objectMapper.readValue(checksum, Map.class);
+                    String check = map.get( ext ); // TODO: convert file ext .md5 .sha1 .sha256 to right algorithm name, e.g, MD-5, SHA-1, SHA-256.
+                    if ( check != null )
+                    {
+                        return new ByteArrayInputStream(check.getBytes());
+                    }
+                    else
+                    {
+                        throw new IOException(String.format(
+                                "Could not open input stream to for path %s - %s: checksum does not exist.", fileSystem, path));
+                    }
+                }
+            }
+            else {
+                throw new IOException(String.format(
+                        "Could not open input stream to for path %s - %s: path-mapped file does not exist.", fileSystem, path));
+            }
         }
         final InputStream stream = physicalStore.getInputStream( storageFile );
         if ( stream == null )
@@ -116,6 +136,14 @@ public class PathMappedFileManager implements Closeable
                     ("Could not open input stream to for path %s - %s: path-mapped physical file does not exist.", fileSystem, path) );
         }
         return stream;
+    }
+
+    private boolean isChecksumFile(String path) {
+        if (path.endsWith(".md5") || path.endsWith(".sha1") || path.endsWith(".sha256") ) // TODO: use pattern match
+        {
+            return true;
+        }
+        return false;
     }
 
     public OutputStream openOutputStream( String fileSystem, String path ) throws IOException
@@ -127,17 +155,13 @@ public class PathMappedFileManager implements Closeable
                     throws IOException
     {
         FileInfo fileInfo = physicalStore.getFileInfo( fileSystem, path );
-        String checksumAlgorithm = null;
-        if ( deduplicatePattern != null && fileSystem.matches( deduplicatePattern ) )
-        {
-            checksumAlgorithm = config.getFileChecksumAlgorithm();
-        }
+        String checksumAlgorithms = config.getChecksumAlgorithms();
         try
         {
             return new BufferedOutputStream( new PathDBOutputStream( pathDB, physicalStore,
                                            fileSystem, path, fileInfo,
                                            physicalStore.getOutputStream( fileInfo ),
-                                           checksumAlgorithm,
+                                           checksumAlgorithms,
                                            timeoutUnit.toMillis( timeout )) );
         }
         catch ( NoSuchAlgorithmException e )

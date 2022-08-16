@@ -17,18 +17,19 @@ package org.commonjava.storage.pathmapped.config;
 
 public interface PathMappedStorageConfig
 {
-
     int getGCIntervalInMinutes();
 
     int getGCGracePeriodInHours();
 
-    String getFileChecksumAlgorithm();
+    int getGCBatchSize();
+
+    String getChecksumAlgorithms();
 
     String getDeduplicatePattern();
 
-    Object getProperty( String key );
+    String getDeduplicateChecksumAlgorithm();
 
-    int getGCBatchSize();
+    Object getProperty( String key );
 
     String getCommonFileExtensions();
 

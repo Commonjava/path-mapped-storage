@@ -15,6 +15,8 @@
  */
 package org.commonjava.storage.pathmapped.core;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.commonjava.storage.pathmapped.spi.FileInfo;
 import org.commonjava.storage.pathmapped.spi.PathDB;
 import org.commonjava.storage.pathmapped.spi.PhysicalStore;
@@ -23,11 +25,12 @@ import org.commonjava.storage.pathmapped.util.ChecksumCalculator;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.security.NoSuchAlgorithmException;
-import java.util.Date;
+import java.util.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.isNull;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 
@@ -39,6 +42,8 @@ import static org.apache.commons.lang.StringUtils.isNotBlank;
 public class PathDBOutputStream
                 extends OutputStream
 {
+    private final Logger logger = LoggerFactory.getLogger( this.getClass() );
+
     private final PathDB pathDB;
 
     private final PhysicalStore physicalStore;
@@ -57,18 +62,16 @@ public class PathDBOutputStream
 
     private Exception error;
 
-    private ChecksumCalculator checksumCalculator;
+    private List<ChecksumCalculator> checksumCalculators = emptyList();
 
     private final long timeoutInMilliseconds;
 
     private OutputStream out;
 
-    private static final Logger logger = LoggerFactory.getLogger( PathDBOutputStream.class.getName() );
-
     private boolean isWarned = false;
 
-    PathDBOutputStream( PathDB pathDB, PhysicalStore physicalStore, String fileSystem, String path, FileInfo fileInfo,
-                        OutputStream out, String checksumAlgorithm, long timeoutInMilliseconds )
+    PathDBOutputStream(PathDB pathDB, PhysicalStore physicalStore, String fileSystem, String path, FileInfo fileInfo,
+                       OutputStream out, String checksumAlgorithms, long timeoutInMilliseconds)
             throws NoSuchAlgorithmException
     {
         this.pathDB = pathDB;
@@ -79,9 +82,9 @@ public class PathDBOutputStream
         this.fileId = fileInfo.getFileId();
         this.fileStorage = fileInfo.getFileStorage();
         this.out = out;
-        if ( isNotBlank( checksumAlgorithm ) && !checksumAlgorithm.equals( "NONE" ) )
+        if ( isNotBlank( checksumAlgorithms ) && !checksumAlgorithms.equals( "NONE" ) )
         {
-            this.checksumCalculator = new ChecksumCalculator( checksumAlgorithm );
+            this.checksumCalculators = ChecksumCalculator.asList( checksumAlgorithms );
         }
         this.timeoutInMilliseconds = timeoutInMilliseconds;
     }
@@ -94,9 +97,9 @@ public class PathDBOutputStream
         {
             out.write( b, off, len );
             size += len;
-            if ( checksumCalculator != null )
+            for (ChecksumCalculator c : checksumCalculators)
             {
-                checksumCalculator.update( b, off, len );
+                c.update( b, off, len );
             }
         }
         catch ( IOException e )
@@ -118,9 +121,9 @@ public class PathDBOutputStream
         size += 1;
         byte by = (byte) ( b & 0xff );
         out.write ( by );
-        if ( checksumCalculator != null )
+        for (ChecksumCalculator c : checksumCalculators)
         {
-            checksumCalculator.update( by );
+            c.update( by );
         }
         if ( !isWarned )
         {
@@ -142,13 +145,32 @@ public class PathDBOutputStream
             {
                 expiration = new Date( creation.getTime() + timeoutInMilliseconds );
             }
-            String checksum = null;
-            if ( checksumCalculator != null )
-            {
-                checksum = checksumCalculator.getDigestHex();
-                logger.trace( "PathDBOutputStream: {} calculated checksum: {}", path, checksum );
-            }
+            String checksum = getChecksumInJson();
             pathDB.insert( fileSystem, path, creation, expiration, fileId, size, fileStorage, checksum );
         }
+    }
+
+    private String getChecksumInJson()
+    {
+        if ( !checksumCalculators.isEmpty() ) {
+            Map<String, String> checksums = new HashMap<>();
+            for (ChecksumCalculator c : checksumCalculators) {
+                String algorithm = c.getAlgorithm();
+                String hex = c.getDigestHex();
+                checksums.put(algorithm, hex);
+                logger.trace("PathDBOutputStream: {}, calculated {} checksum: {}", path, algorithm, hex);
+            }
+            ObjectMapper mapperObj = new ObjectMapper();
+            try
+            {
+                return mapperObj.writeValueAsString(checksums);
+            }
+            catch ( JsonProcessingException e )
+            {
+                logger.error( "Generate checksum error", e );
+                return null;
+            }
+        }
+        return null;
     }
 }

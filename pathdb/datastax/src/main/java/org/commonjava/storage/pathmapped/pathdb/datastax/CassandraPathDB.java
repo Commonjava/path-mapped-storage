@@ -25,6 +25,7 @@ import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.Result;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.TreeTraverser;
 import org.commonjava.storage.pathmapped.model.*;
 import org.commonjava.storage.pathmapped.pathdb.datastax.model.*;
@@ -38,15 +39,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -63,6 +59,8 @@ public class CassandraPathDB
                 implements PathDB, PathDBAdmin, Closeable
 {
     private final Logger logger = LoggerFactory.getLogger( getClass() );
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private AsyncJobExecutor asyncJobExecutor; // run non-critical jobs on backend
 
@@ -493,6 +491,16 @@ public class CassandraPathDB
 
     private void insert( DtxPathMap pathMap )
     {
+        insert( pathMap, false );
+    }
+
+    /**
+     * Insert the target pathMap object to path DB.
+     * @param pathMap
+     * @param skipDeDuplicate we MUST skip deduplicate when called from #copy()
+     */
+    private void insert( DtxPathMap pathMap, boolean skipDeDuplicate )
+    {
         logger.debug( "Insert: {}", pathMap );
 
         final String fileSystem = pathMap.getFileSystem();
@@ -510,10 +518,20 @@ public class CassandraPathDB
 
         boolean isDuplicateFile = false;
 
-        String checksum = pathMap.getChecksum();
-        if ( isNotBlank( checksum ) )
+        boolean deduplicate = false;
+        if ( !skipDeDuplicate )
         {
-            final FileChecksum existing = fileChecksumMapper.get( checksum );
+            String deduplicatePattern = config.getDeduplicatePattern();
+            if (deduplicatePattern != null && fileSystem.matches(deduplicatePattern)) {
+                deduplicate = true;
+            }
+        }
+
+        String checksum = pathMap.getChecksum();
+        if ( deduplicate && isNotBlank( checksum ) )
+        {
+            String deduplicateChecksum = getDeduplicateChecksum( checksum );
+            final FileChecksum existing = fileChecksumMapper.get( deduplicateChecksum );
             if ( existing != null )
             {
                 logger.debug( "File checksum exists, use existing file storage" );
@@ -529,7 +547,7 @@ public class CassandraPathDB
             {
                 logger.debug( "File checksum not exists, marked current file {} as primary", pathMap );
                 fileChecksumMapper.save(
-                        new DtxFileChecksum( checksum, pathMap.getFileId(), pathMap.getFileStorage() ) );
+                        new DtxFileChecksum( deduplicateChecksum, pathMap.getFileId(), pathMap.getFileStorage() ) );
             }
         }
 
@@ -541,6 +559,20 @@ public class CassandraPathDB
         });
 
         logger.debug( "Insert finished: {}", pathMap.getFilename() );
+    }
+
+    private String getDeduplicateChecksum(String checksum)
+    {
+        try
+        {
+            Map<String, String> map = objectMapper.readValue( checksum, Map.class );
+            return map.get( config.getDeduplicateChecksumAlgorithm() );
+        }
+        catch (IOException e)
+        {
+            logger.error( "Get deduplicate checksum error", e );
+            return null;
+        }
     }
 
     private void postInsertionActions(String fileSystem, String path, PathMap pathMap, boolean isDuplicateFile)
@@ -763,7 +795,7 @@ public class CassandraPathDB
         target = new DtxPathMap( toFileSystem, toParentPath, toFilename, pathMap.getFileId(), pathMap.getCreation(),
                                  pathMap.getExpiration(), pathMap.getSize(), pathMap.getFileStorage(),
                                  pathMap.getChecksum() );
-        insert( target );
+        insert( target, true );
         return true;
     }
 

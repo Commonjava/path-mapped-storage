@@ -26,7 +26,7 @@ public class DefaultPathMappedStorageConfig
 
     private final int DEFAULT_GC_GRACE_PERIOD_IN_HOURS = 24;
 
-    private final String DEFAULT_FILE_CHECKSUM_ALGORITHM = "SHA-256";
+    private final String DEFAULT_CHECKSUM_ALGORITHM = "SHA-256";
 
     private int gcGracePeriodInHours = DEFAULT_GC_GRACE_PERIOD_IN_HOURS;
 
@@ -34,9 +34,11 @@ public class DefaultPathMappedStorageConfig
 
     private int gcBatchSize = DEFAULT_GC_BATCH_SIZE;
 
-    private String fileChecksumAlgorithm = DEFAULT_FILE_CHECKSUM_ALGORITHM;
+    private String checksumAlgorithms = DEFAULT_CHECKSUM_ALGORITHM;
 
     private String deduplicatePattern;
+
+    private String deduplicateChecksumAlgorithm = DEFAULT_CHECKSUM_ALGORITHM;
 
     private static final String DEFAULT_COMMON_FILE_EXTENSIONS = ".+\\.(jar|json|xml|pom|gz|tgz|md5|sha1|sha256)$";
 
@@ -76,14 +78,14 @@ public class DefaultPathMappedStorageConfig
     }
 
     @Override
-    public String getFileChecksumAlgorithm()
+    public String getChecksumAlgorithms()
     {
-        return fileChecksumAlgorithm;
+        return checksumAlgorithms;
     }
 
-    public void setFileChecksumAlgorithm( String fileChecksumAlgorithm )
+    public void setChecksumAlgorithms(String checksumAlgorithms)
     {
-        this.fileChecksumAlgorithm = fileChecksumAlgorithm;
+        this.checksumAlgorithms = checksumAlgorithms;
     }
 
     private Map<String, Object> properties;
@@ -138,5 +140,14 @@ public class DefaultPathMappedStorageConfig
 
     public void setPhysicalFileExistenceCheckEnabled(boolean physicalFileExistenceCheckEnabled) {
         this.physicalFileExistenceCheckEnabled = physicalFileExistenceCheckEnabled;
+    }
+
+    @Override
+    public String getDeduplicateChecksumAlgorithm() {
+        return deduplicateChecksumAlgorithm;
+    }
+
+    public void setDeduplicateChecksumAlgorithm(String deduplicateChecksumAlgorithm) {
+        this.deduplicateChecksumAlgorithm = deduplicateChecksumAlgorithm;
     }
 }

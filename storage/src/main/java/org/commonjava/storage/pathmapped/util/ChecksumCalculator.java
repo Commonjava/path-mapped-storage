@@ -18,12 +18,16 @@ package org.commonjava.storage.pathmapped.util;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.commons.codec.binary.Hex.encodeHexString;
 
 public class ChecksumCalculator
 {
     private final MessageDigest digester;
+
+    private String algorithm;
 
     private String digestHex;
 
@@ -41,6 +45,18 @@ public class ChecksumCalculator
         {
             this.digester = MessageDigest.getInstance( algorithm, this.provider );
         }
+        this.algorithm = algorithm;
+    }
+
+    public static List<ChecksumCalculator> asList( String algorithms ) throws NoSuchAlgorithmException
+    {
+        List<ChecksumCalculator> ret = new ArrayList<>();
+        String[] tokens = algorithms.split("," );
+        for (String s : tokens)
+        {
+            ret.add( new ChecksumCalculator( s.trim() ) );
+        }
+        return ret;
     }
 
     public final void update( final byte[] data )
@@ -66,4 +82,10 @@ public class ChecksumCalculator
         }
         return digestHex;
     }
+
+    public String getAlgorithm()
+    {
+        return algorithm;
+    }
+
 }
