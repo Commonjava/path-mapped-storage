@@ -21,6 +21,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.policies.ConstantReconnectionPolicy;
 import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.Result;
@@ -87,6 +88,8 @@ public class CassandraPathDB
 
     private int replicationFactor = 1; // keyspace replica, default 1
 
+    private long reconnectDelay = 60000;
+
     private PreparedStatement preparedExistQuery, preparedListQuery, preparedListCheckEmpty, preparedContainingQuery, preparedExistFileQuery,
             preparedUpdateExpiration, preparedReverseMapIncrement, preparedReverseMapReduction,
             preparedFilesystemIncrement, preparedFilesystemReduction, preparedFilesystemList;
@@ -114,8 +117,15 @@ public class CassandraPathDB
         int port = (Integer) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_PORT );
         String username = (String) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_USER );
         String password = (String) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_PASS );
+        Long delay = (Long) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_RECONNECT_DELAY );
 
         Cluster.Builder builder = Cluster.builder().withoutJMXReporting().addContactPoint( host ).withPort( port );
+        if ( delay != null )
+        {
+            reconnectDelay = delay;
+        }
+        builder.withReconnectionPolicy( new ConstantReconnectionPolicy( reconnectDelay ) );
+
         if ( isNotBlank( username ) && isNotBlank( password ) )
         {
             logger.debug( "Build with credentials, user: {}, pass: ****", username );
