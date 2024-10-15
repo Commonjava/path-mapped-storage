@@ -28,6 +28,8 @@ public class CassandraPathDBUtils
 
     public static final String PROP_CASSANDRA_PASS = "cassandra_pass";
 
+    public static final String PROP_CASSANDRA_RECONNECT_DELAY = "cassandra_reconnect_delay";
+
     public static final String PROP_CASSANDRA_KEYSPACE = "cassandra_keyspace";
 
     public static final String PROP_CASSANDRA_REPLICATION_FACTOR = "cassandra_replication_factor";
