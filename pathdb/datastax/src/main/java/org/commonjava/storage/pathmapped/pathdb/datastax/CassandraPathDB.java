@@ -21,6 +21,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.ConstantReconnectionPolicy;
 import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
@@ -205,6 +206,7 @@ public class CassandraPathDB
     {
         if ( cluster != null ) // close only if the session and cluster were built by self
         {
+            logger.info( "Close cassandra client" );
             asyncJobExecutor.shutdownAndWaitTermination();
             session.close();
             cluster.close();
@@ -229,7 +231,7 @@ public class CassandraPathDB
         String filename = PathMapUtils.getFilename( path );
 
         BoundStatement bound = preparedContainingQuery.bind( candidates, parentPath, filename );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         return result.all().stream().map( row -> row.get( 0, String.class ) ).collect( Collectors.toSet() );
     }
 
@@ -287,7 +289,7 @@ public class CassandraPathDB
     private Result<DtxPathMap> boundAndRunListQuery( String fileSystem, String parentPath )
     {
         BoundStatement bound = preparedListQuery.bind( fileSystem, parentPath );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         return pathMapMapper.map( result );
     }
 
@@ -435,7 +437,7 @@ public class CassandraPathDB
         {
             bound = preparedExistQuery.bind( fileSystem, parentPath, Arrays.asList( filename, filename + "/" ) );
         }
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         FileType ret = getFileTypeOrNull( result );
         if ( ret != null )
         {
@@ -455,7 +457,7 @@ public class CassandraPathDB
         String filename = PathMapUtils.getFilename( path );
 
         BoundStatement bound = preparedExistFileQuery.bind( fileSystem, parentPath, filename );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         Row row = result.one();
         boolean exists = false;
         if ( row != null )
@@ -590,7 +592,7 @@ public class CassandraPathDB
         String filename = PathMapUtils.getFilename( path );
 
         BoundStatement bound = preparedExistQuery.bind( fileSystem, parentPath, Arrays.asList( filename ) );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         return notNull( result );
     }
 
@@ -605,7 +607,7 @@ public class CassandraPathDB
         String filename = PathMapUtils.getFilename( path );
 
         BoundStatement bound = preparedExistQuery.bind( fileSystem, parentPath, Arrays.asList( filename ) );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         return notNull( result );
     }
 
@@ -685,7 +687,7 @@ public class CassandraPathDB
     {
         path = PathMapUtils.normalizeParentPath( path );
         BoundStatement bound = preparedListCheckEmpty.bind( fileSystem, path );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         Row row = result.one();
         boolean empty = false;
         if ( row != null )
@@ -705,7 +707,7 @@ public class CassandraPathDB
         reduction.add( path );
         bound.setSet( 0, reduction );
         bound.setString( 1, fileId );
-        session.execute( bound );
+        executeSession( bound );
     }
 
     private void addToReverseMap( String fileId, String path )
@@ -716,7 +718,7 @@ public class CassandraPathDB
         increment.add( path );
         bound.setSet( 0, increment );
         bound.setString( 1, fileId );
-        session.execute( bound );
+        executeSession( bound );
     }
 
     private void updateFilesystemIncrease(String filesystem, long count, long size)
@@ -726,7 +728,7 @@ public class CassandraPathDB
         bound.setLong( 0, count );
         bound.setLong( 1, size );
         bound.setString( 2, filesystem );
-        session.execute( bound );
+        executeSession( bound );
     }
 
     private void updateFilesystemDecrease(String filesystem, long count, long size)
@@ -736,7 +738,7 @@ public class CassandraPathDB
         bound.setLong( 0, count );
         bound.setLong( 1, size );
         bound.setString( 2, filesystem );
-        session.execute( bound );
+        executeSession( bound );
     }
 
     private void reclaim( String fileId, String fileStorage, String checksum )
@@ -833,7 +835,7 @@ public class CassandraPathDB
         bound.setString( 1, fileSystem );
         bound.setString( 2, parentPath );
         bound.setString( 3, filename );
-        session.execute( bound );
+        executeSession( bound );
     }
 
     @Override
@@ -854,7 +856,7 @@ public class CassandraPathDB
         String filename = PathMapUtils.getFilename( path );
 
         BoundStatement bound = preparedExistQuery.bind( fileSystem, parentPath, Arrays.asList( filename ) );
-        ResultSet result = session.execute( bound );
+        ResultSet result = executeSession( bound );
         if ( notNull( result ) )
         {
             logger.debug( "Dir already exists, fileSystem: {}, path: {}", fileSystem, path );
@@ -930,7 +932,7 @@ public class CassandraPathDB
     @Override
     public List<? extends Filesystem> getFilesystems()
     {
-        ResultSet result = session.execute( preparedFilesystemList.bind() );
+        ResultSet result = executeSession( preparedFilesystemList.bind() );
         return filesystemMapper.map(result).all();
     }
 
@@ -960,5 +962,35 @@ public class CassandraPathDB
             return reverseMap.getPaths();
         }
         return emptySet();
+    }
+
+    private ResultSet executeSession ( BoundStatement bind )
+    {
+        boolean exception = false;
+        ResultSet trackingRecord = null;
+        try
+        {
+            if ( session == null || session.isClosed() )
+            {
+                close();
+                new CassandraPathDB( config );
+            }
+            trackingRecord = session.execute( bind );
+        }
+        catch ( NoHostAvailableException e )
+        {
+            exception = true;
+            logger.error( "Cannot connect to host, reconnect once more with new session.", e );
+        }
+        finally
+        {
+            if ( exception )
+            {
+                close();
+                new CassandraPathDB( config );
+                trackingRecord = session.execute( bind );
+            }
+        }
+        return trackingRecord;
     }
 }
