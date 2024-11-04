@@ -85,7 +85,7 @@ public class CassandraPathDB
 
     private PathMappedStorageConfig config;
 
-    private final String keyspace;
+    private String keyspace;
 
     private int replicationFactor = 1; // keyspace replica, default 1
 
@@ -113,7 +113,11 @@ public class CassandraPathDB
     public CassandraPathDB( PathMappedStorageConfig config )
     {
         this.config = config;
+        init();
+    }
 
+    public void init()
+    {
         String host = (String) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_HOST );
         int port = (Integer) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_PORT );
         String username = (String) config.getProperty( CassandraPathDBUtils.PROP_CASSANDRA_USER );
@@ -973,7 +977,7 @@ public class CassandraPathDB
             if ( session == null || session.isClosed() )
             {
                 close();
-                new CassandraPathDB( config );
+                this.init();
             }
             trackingRecord = session.execute( bind );
         }
@@ -987,7 +991,7 @@ public class CassandraPathDB
             if ( exception )
             {
                 close();
-                new CassandraPathDB( config );
+                this.init();
                 trackingRecord = session.execute( bind );
             }
         }
