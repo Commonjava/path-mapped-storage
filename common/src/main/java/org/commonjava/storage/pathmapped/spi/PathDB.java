@@ -104,4 +104,16 @@ public interface PathDB
      * @param fileType file, dir, or all
      */
     void traverse( String fileSystem, String path, Consumer<PathMap> consumer, int limit, FileType fileType );
+
+    Set<String> getProxySitesCache();
+
+    boolean isProxySite( String site );
+
+    List<String> getProxySiteList();
+
+    void saveProxySite( String site );
+
+    void deleteProxySite( String site );
+
+    void deleteAllProxySite();
 }

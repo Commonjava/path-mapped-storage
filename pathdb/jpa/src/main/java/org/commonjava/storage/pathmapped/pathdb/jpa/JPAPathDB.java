@@ -15,24 +15,24 @@
  */
 package org.commonjava.storage.pathmapped.pathdb.jpa;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Persistence;
+import jakarta.persistence.Query;
 import org.commonjava.storage.pathmapped.model.FileChecksum;
+import org.commonjava.storage.pathmapped.model.PathMap;
+import org.commonjava.storage.pathmapped.model.Reclaim;
+import org.commonjava.storage.pathmapped.model.ReverseMap;
 import org.commonjava.storage.pathmapped.pathdb.jpa.model.JpaPathKey;
 import org.commonjava.storage.pathmapped.pathdb.jpa.model.JpaPathMap;
 import org.commonjava.storage.pathmapped.pathdb.jpa.model.JpaReclaim;
 import org.commonjava.storage.pathmapped.pathdb.jpa.model.JpaReverseKey;
 import org.commonjava.storage.pathmapped.pathdb.jpa.model.JpaReverseMap;
-import org.commonjava.storage.pathmapped.model.PathMap;
-import org.commonjava.storage.pathmapped.model.Reclaim;
-import org.commonjava.storage.pathmapped.model.ReverseMap;
 import org.commonjava.storage.pathmapped.spi.PathDB;
 import org.commonjava.storage.pathmapped.util.PathMapUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
-import jakarta.persistence.Query;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -437,4 +437,36 @@ public class JPAPathDB
         return new JpaPathKey( fileSystem, parentPath, filename );
     }
 
+    @Override
+    public Set<String> getProxySitesCache()
+    {
+        return null;
+    }
+
+    @Override
+    public boolean isProxySite( String site )
+    {
+        return false;
+    }
+
+    @Override
+    public List<String> getProxySiteList()
+    {
+        return null;
+    }
+
+    @Override
+    public void saveProxySite( String site )
+    {
+    }
+
+    @Override
+    public void deleteProxySite( String site )
+    {
+    }
+
+    @Override
+    public void deleteAllProxySite()
+    {
+    }
 }

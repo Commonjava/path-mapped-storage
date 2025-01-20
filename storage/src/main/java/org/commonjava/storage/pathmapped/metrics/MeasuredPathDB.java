@@ -221,4 +221,39 @@ public class MeasuredPathDB
         return true;
     }
 
+    @Override
+    public Set<String> getProxySitesCache()
+    {
+        return measure( () -> decorated.getProxySitesCache(), "getProxySitesCache" );
+    }
+
+    @Override
+    public boolean isProxySite( String site )
+    {
+        return measure( () -> decorated.isProxySite( site ), "isProxySite" );
+    }
+
+    @Override
+    public List<String> getProxySiteList()
+    {
+        return measure( () -> decorated.getProxySiteList(), "getProxySiteList" );
+    }
+
+    @Override
+    public void saveProxySite( String site )
+    {
+        measure( () -> decorated.saveProxySite( site ), "saveProxySite" );
+    }
+
+    @Override
+    public void deleteProxySite( String site )
+    {
+        measure( () -> decorated.deleteProxySite( site ), "deleteProxySite" );
+    }
+
+    @Override
+    public void deleteAllProxySite()
+    {
+        measure( () -> decorated.deleteAllProxySite(), "deleteAllProxySite" );
+    }
 }

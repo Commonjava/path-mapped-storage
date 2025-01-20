@@ -26,13 +26,21 @@ import com.datastax.driver.core.policies.ConstantReconnectionPolicy;
 import com.datastax.driver.mapping.Mapper;
 import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.Result;
-
 import com.google.common.collect.TreeTraverser;
-import org.commonjava.storage.pathmapped.model.*;
-import org.commonjava.storage.pathmapped.pathdb.datastax.model.*;
+import org.commonjava.storage.pathmapped.config.PathMappedStorageConfig;
+import org.commonjava.storage.pathmapped.model.FileChecksum;
+import org.commonjava.storage.pathmapped.model.Filesystem;
+import org.commonjava.storage.pathmapped.model.PathMap;
+import org.commonjava.storage.pathmapped.model.Reclaim;
+import org.commonjava.storage.pathmapped.model.ReverseMap;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxFileChecksum;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxFilesystem;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxPathMap;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxProxySite;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxReclaim;
+import org.commonjava.storage.pathmapped.pathdb.datastax.model.DtxReverseMap;
 import org.commonjava.storage.pathmapped.pathdb.datastax.util.AsyncJobExecutor;
 import org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils;
-import org.commonjava.storage.pathmapped.config.PathMappedStorageConfig;
 import org.commonjava.storage.pathmapped.spi.PathDB;
 import org.commonjava.storage.pathmapped.spi.PathDBAdmin;
 import org.commonjava.storage.pathmapped.util.PathMapUtils;
@@ -55,11 +63,13 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.datastax.driver.core.ConsistencyLevel.*;
+import static com.datastax.driver.core.ConsistencyLevel.QUORUM;
 import static java.util.Collections.emptySet;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.getHoursInDay;
-import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.*;
+import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.all;
+import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.dir;
+import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.file;
 import static org.commonjava.storage.pathmapped.util.PathMapUtils.ROOT_DIR;
 
 public class CassandraPathDB
@@ -83,6 +93,8 @@ public class CassandraPathDB
 
     private Mapper<DtxFilesystem> filesystemMapper;
 
+    protected Set<String> proxySitesCache = new HashSet<>();
+
     private PathMappedStorageConfig config;
 
     private String keyspace;
@@ -91,9 +103,12 @@ public class CassandraPathDB
 
     private long reconnectDelay = 60000;
 
-    private PreparedStatement preparedExistQuery, preparedListQuery, preparedListCheckEmpty, preparedContainingQuery, preparedExistFileQuery,
-            preparedUpdateExpiration, preparedReverseMapIncrement, preparedReverseMapReduction,
-            preparedFilesystemIncrement, preparedFilesystemReduction, preparedFilesystemList;
+    private Mapper<DtxProxySite> proxysiteMapper;
+
+    private PreparedStatement preparedExistQuery, preparedListQuery, preparedListCheckEmpty, preparedContainingQuery,
+            preparedExistFileQuery, preparedUpdateExpiration, preparedReverseMapIncrement, preparedReverseMapReduction,
+            preparedFilesystemIncrement, preparedFilesystemReduction, preparedFilesystemList, preparedProxySiteQuery,
+            preparedProxySiteList, preparedProxySiteTruncate;
 
     @Deprecated
     public CassandraPathDB( PathMappedStorageConfig config, Session session, String keyspace )
@@ -158,6 +173,7 @@ public class CassandraPathDB
         session.execute( CassandraPathDBUtils.getSchemaCreateTableReclaim( keyspace ) );
         session.execute( CassandraPathDBUtils.getSchemaCreateTableFileChecksum( keyspace ) );
         session.execute( CassandraPathDBUtils.getSchemaCreateTableFilesystem( keyspace ) );
+        session.execute( CassandraPathDBUtils.getSchemaCreateTableProxySites( keyspace ) );
 
         MappingManager manager = new MappingManager( session );
 
@@ -166,6 +182,7 @@ public class CassandraPathDB
         reclaimMapper = manager.mapper( DtxReclaim.class, keyspace );
         fileChecksumMapper = manager.mapper( DtxFileChecksum.class, keyspace );
         filesystemMapper = manager.mapper( DtxFilesystem.class, keyspace );
+        proxysiteMapper = manager.mapper( DtxProxySite.class, keyspace );
 
         preparedExistFileQuery = session.prepare( "SELECT count(*) FROM " + keyspace
                                                                   + ".pathmap WHERE filesystem=? and parentpath=? and filename=?;" );
@@ -185,22 +202,28 @@ public class CassandraPathDB
                 "WHERE filesystem=? and parentpath=? and filename=?;" );
 
         preparedContainingQuery = session.prepare( "SELECT filesystem FROM " + keyspace
-                                                                   + ".pathmap WHERE filesystem IN ? and parentpath=? and filename=?;" );
+                                                           + ".pathmap WHERE filesystem IN ? and parentpath=? and filename=?;" );
 
         preparedReverseMapIncrement =
-                        session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths + ? WHERE fileid=?;" );
+                session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths + ? WHERE fileid=?;" );
 
         preparedReverseMapReduction =
-                        session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths - ? WHERE fileid=?;" );
+                session.prepare( "UPDATE " + keyspace + ".reversemap SET paths = paths - ? WHERE fileid=?;" );
         preparedReverseMapReduction.setConsistencyLevel( QUORUM );
 
-        preparedFilesystemIncrement =
-                session.prepare("UPDATE " + keyspace + ".filesystem SET filecount=filecount+?, size=size+? WHERE filesystem=?;" );
+        preparedFilesystemIncrement = session.prepare(
+                "UPDATE " + keyspace + ".filesystem SET filecount=filecount+?, size=size+? WHERE filesystem=?;" );
 
-        preparedFilesystemReduction =
-                session.prepare("UPDATE " + keyspace + ".filesystem SET filecount=filecount-?, size=size-? WHERE filesystem=?;" );
+        preparedFilesystemReduction = session.prepare(
+                "UPDATE " + keyspace + ".filesystem SET filecount=filecount-?, size=size-? WHERE filesystem=?;" );
 
-        preparedFilesystemList = session.prepare("SELECT * FROM " + keyspace + ".filesystem;" );
+        preparedFilesystemList = session.prepare( "SELECT * FROM " + keyspace + ".filesystem;" );
+
+        preparedProxySiteQuery = session.prepare( "SELECT * FROM " + keyspace + ".proxysites WHERE site=?;" );
+
+        preparedProxySiteList = session.prepare( "SELECT * FROM " + keyspace + ".proxysites;" );
+
+        preparedProxySiteTruncate = session.prepare( "TRUNCATE " + keyspace + ".proxysites;" );
 
         asyncJobExecutor = new AsyncJobExecutor( config );
     }
@@ -996,5 +1019,49 @@ public class CassandraPathDB
             }
         }
         return trackingRecord;
+    }
+
+    @Override
+    public Set<String> getProxySitesCache()
+    {
+        return proxySitesCache;
+    }
+
+    @Override
+    public boolean isProxySite( String site )
+    {
+        BoundStatement bound = preparedProxySiteQuery.bind( site );
+        ResultSet result = executeSession( bound );
+        return notNull( result );
+    }
+
+    @Override
+    public List<String> getProxySiteList()
+    {
+        ResultSet result = executeSession( preparedProxySiteList.bind() );
+        return proxysiteMapper.map( result ).all().stream().map( DtxProxySite::getSite ).collect( Collectors.toList() );
+    }
+
+    @Override
+    public void saveProxySite( String site )
+    {
+        DtxProxySite proxySite = new DtxProxySite( site );
+        logger.debug( "ProxySite, {}", site );
+        proxysiteMapper.save( proxySite );
+    }
+
+    @Override
+    public void deleteProxySite( String site )
+    {
+        DtxProxySite proxySite = new DtxProxySite( site );
+        logger.debug( "Delete proxySite, {}", site );
+        proxysiteMapper.delete( proxySite );
+    }
+
+    @Override
+    public void deleteAllProxySite()
+    {
+        BoundStatement bound = preparedProxySiteTruncate.bind();
+        executeSession( bound );
     }
 }

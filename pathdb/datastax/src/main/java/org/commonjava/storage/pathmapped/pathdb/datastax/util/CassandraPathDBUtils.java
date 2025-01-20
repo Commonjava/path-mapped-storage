@@ -96,12 +96,14 @@ public class CassandraPathDBUtils
 
     public static String getSchemaCreateTableFileChecksum( String keyspace )
     {
-        return "CREATE TABLE IF NOT EXISTS " + keyspace + ".filechecksum ("
-                        + "checksum varchar,"
-                        + "fileid varchar,"
-                        + "storage varchar,"
-                        + "PRIMARY KEY (checksum)"
-                        + ");";
+        return "CREATE TABLE IF NOT EXISTS " + keyspace + ".filechecksum (" + "checksum varchar," + "fileid varchar,"
+                + "storage varchar," + "PRIMARY KEY (checksum)" + ");";
+    }
+
+    public static String getSchemaCreateTableProxySites( String keyspace )
+    {
+        return "CREATE TABLE IF NOT EXISTS " + keyspace + ".proxysites (" + "site varchar," + "PRIMARY KEY (site)"
+                + ");";
     }
 
     // Since Date.getHours is deprecated, we use this to replace it.

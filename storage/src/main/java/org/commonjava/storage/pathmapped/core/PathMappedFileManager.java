@@ -32,7 +32,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -476,11 +481,42 @@ public class PathMappedFileManager implements Closeable
     }
 
     @Override
-    public void close() throws IOException
+    public void close()
+            throws IOException
     {
         if ( pathDB instanceof Closeable )
         {
             ( (Closeable) pathDB ).close();
         }
+    }
+
+    public Set<String> getProxySitesCache()
+    {
+        return pathDB.getProxySitesCache();
+    }
+
+    public boolean isProxySite( String site )
+    {
+        return pathDB.isProxySite( site );
+    }
+
+    public List<String> getProxySiteList()
+    {
+        return pathDB.getProxySiteList();
+    }
+
+    public void saveProxySite( String site )
+    {
+        pathDB.saveProxySite( site );
+    }
+
+    public void deleteProxySite( String site )
+    {
+        pathDB.deleteProxySite( site );
+    }
+
+    public void deleteAllProxySite()
+    {
+        pathDB.deleteAllProxySite();
     }
 }
