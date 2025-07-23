@@ -632,12 +632,12 @@ public class CassandraPathDB
         PathMap pathMap = getPathMap( fileSystem, path );
         if ( pathMap == null )
         {
-            logger.debug( "File not exists, {}", pathMap );
+            logger.debug( "File or directory not exists, {}", path );
             return true;
         }
 
         String fileId = pathMap.getFileId();
-        if ( fileId == null )
+        if ( fileId == null ) // dir
         {
             // force or empty dir
             if ( force || isEmptyDirectory( fileSystem, path ) )
@@ -689,8 +689,8 @@ public class CassandraPathDB
 
     private boolean isEmptyDirectory( String fileSystem, String path )
     {
-        path = PathMapUtils.normalizeParentPath( path );
-        BoundStatement bound = preparedListCheckEmpty.bind( fileSystem, path );
+        String normalized = PathMapUtils.normalizeParentPath( path );
+        BoundStatement bound = preparedListCheckEmpty.bind( fileSystem, normalized );
         ResultSet result = executeSession( bound );
         Row row = result.one();
         boolean empty = false;
@@ -699,7 +699,7 @@ public class CassandraPathDB
             long count = row.get( 0, Long.class );
             empty = count <= 0;
         }
-        logger.trace( "Dir '{}' is {} in fileSystem '{}'", path, ( empty ? "empty" : "not empty" ), fileSystem );
+        logger.trace( "Dir '{}' is {} in fileSystem '{}'", normalized, ( empty ? "empty" : "not empty" ), fileSystem );
         return empty;
     }
 
