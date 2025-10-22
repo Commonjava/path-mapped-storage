@@ -35,9 +35,37 @@
             <groupId>org.commonjava.util</groupId>
             <artifactId>o11yphant-metrics-api</artifactId>
         </dependency>
+        <!-- Managing vulnerable versions of netty from AWS to avoid CVE -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+        </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
         </dependency>
 
         <!--Test-->
@@ -49,6 +77,14 @@
         <dependency>
             <groupId>org.commonjava.util</groupId>
             <artifactId>path-mapped-pathdb-jpa</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- web-commons-bom:26 has guava 18. bom versions above that have 29 or 31. This
+            conflicts with cassandra-unit which requires 21 or less -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>21.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
