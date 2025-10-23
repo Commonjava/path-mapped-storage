@@ -49,7 +49,7 @@
     <properties>
         <projectOwner>Red Hat, Inc.</projectOwner>
         <projectEmail>nos-devel@redhat.com</projectEmail>
-        <javaVersion>11</javaVersion>
+        <javaVersion>1.8</javaVersion>
         <test-forkCount>1</test-forkCount>
         <cassandraVersion>3.12.1</cassandraVersion>
         <cassandraUnitVersion>3.11.2.0</cassandraUnitVersion>
