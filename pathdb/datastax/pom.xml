@@ -27,16 +27,39 @@
     <artifactId>path-mapped-pathdb-datastax</artifactId>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <!-- Managing vulnerable versions of netty from cassandra to avoid CVE -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+        </dependency>
         <!--Datastax Java Driver-->
         <dependency>
-            <groupId>com.datastax.cassandra</groupId>
+            <groupId>org.apache.cassandra</groupId>
             <artifactId>cassandra-driver-core</artifactId>
-            <version>${datastaxVersion}</version>
+            <version>${cassandraVersion}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.datastax.cassandra</groupId>
+            <groupId>org.apache.cassandra</groupId>
             <artifactId>cassandra-driver-mapping</artifactId>
-            <version>${datastaxVersion}</version>
+            <version>${cassandraVersion}</version>
+        </dependency>
+        <!-- web-commons-bom:26 has guava 18. bom versions above that have 29 or 31. This
+            conflicts with cassandra-unit which requires 21 or less. Also CassandraPathDB
+            uses code that has been deprecated in later versions of guava -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>21.0</version>
         </dependency>
         <dependency>
             <groupId>org.cassandraunit</groupId>

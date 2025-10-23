@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.commonjava</groupId>
         <artifactId>commonjava</artifactId>
-        <version>19</version>
+        <version>21</version>
     </parent>
 
     <groupId>org.commonjava.util</groupId>
@@ -51,17 +51,25 @@
         <projectEmail>nos-devel@redhat.com</projectEmail>
         <javaVersion>11</javaVersion>
         <test-forkCount>1</test-forkCount>
-        <datastaxVersion>3.7.2</datastaxVersion>
+        <cassandraVersion>3.12.1</cassandraVersion>
         <cassandraUnitVersion>3.11.2.0</cassandraUnitVersion>
-        <hibernateVersion>5.4.4.Final</hibernateVersion>
-        <o11yphantVersion>1.4</o11yphantVersion>
-        <h2Version>1.4.188</h2Version>
+        <hibernateVersion>5.4.33.Final</hibernateVersion>
+        <o11yphantVersion>1.9.2</o11yphantVersion>
+        <h2Version>2.2.220</h2Version>
         <pmd.failOnViolation>false</pmd.failOnViolation>
         <aws.java.sdk.version>2.21.20</aws.java.sdk.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Managing vulnerable versions of netty from cassandra to avoid CVE -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>4.1.118.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
@@ -103,7 +111,7 @@
             <dependency>
                 <groupId>org.commonjava.boms</groupId>
                 <artifactId>web-commons-bom</artifactId>
-                <version>24</version>
+                <version>31</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -123,10 +131,6 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>commons-lang</groupId>
-            <artifactId>commons-lang</artifactId>
         </dependency>
         <dependency>
             <groupId>commons-codec</groupId>

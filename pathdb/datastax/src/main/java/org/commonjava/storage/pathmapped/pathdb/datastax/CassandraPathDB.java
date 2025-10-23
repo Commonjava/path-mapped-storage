@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
 
 import static com.datastax.driver.core.ConsistencyLevel.*;
 import static java.util.Collections.emptySet;
-import static org.apache.commons.lang.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.commonjava.storage.pathmapped.pathdb.datastax.util.CassandraPathDBUtils.getHoursInDay;
 import static org.commonjava.storage.pathmapped.spi.PathDB.FileType.*;
 import static org.commonjava.storage.pathmapped.util.PathMapUtils.ROOT_DIR;
