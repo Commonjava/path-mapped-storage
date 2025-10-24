@@ -26,6 +26,8 @@
 
     <artifactId>path-mapped-storage</artifactId>
 
+    <name>path-mapped :: pathdb :: storage</name>
+
     <dependencies>
         <dependency>
             <groupId>org.commonjava.util</groupId>
