@@ -102,11 +102,6 @@
                 <artifactId>path-mapped-pathdb-jpa</artifactId>
                 <version>3.1-SNAPSHOT</version>
             </dependency>
-            <dependency>
-                <groupId>org.commonjava.util</groupId>
-                <artifactId>path-mapped-tool</artifactId>
-                <version>2.6-SNAPSHOT</version>
-            </dependency>
 
             <dependency>
                 <groupId>org.commonjava.boms</groupId>
