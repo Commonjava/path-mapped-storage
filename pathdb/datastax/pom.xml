@@ -26,6 +26,8 @@
 
     <artifactId>path-mapped-pathdb-datastax</artifactId>
 
+    <name>path-mapped :: pathdb :: datastax</name>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.commons</groupId>

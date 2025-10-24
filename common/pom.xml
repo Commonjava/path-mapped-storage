@@ -26,6 +26,8 @@
 
     <artifactId>path-mapped-common</artifactId>
 
+    <name>path-mapped :: common</name>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.commons</groupId>
