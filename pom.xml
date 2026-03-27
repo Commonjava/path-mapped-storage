@@ -54,7 +54,6 @@
         <cassandraVersion>3.12.1</cassandraVersion>
         <cassandraUnitVersion>3.11.2.0</cassandraUnitVersion>
         <hibernateVersion>5.4.33.Final</hibernateVersion>
-        <o11yphantVersion>1.9.2</o11yphantVersion>
         <h2Version>2.2.220</h2Version>
         <pmd.failOnViolation>false</pmd.failOnViolation>
         <aws.java.sdk.version>2.21.20</aws.java.sdk.version>
@@ -109,11 +108,6 @@
                 <version>31</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.commonjava.util</groupId>
-                <artifactId>o11yphant-metrics-api</artifactId>
-                <version>${o11yphantVersion}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
