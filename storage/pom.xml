@@ -33,10 +33,6 @@
             <groupId>org.commonjava.util</groupId>
             <artifactId>path-mapped-common</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.commonjava.util</groupId>
-            <artifactId>o11yphant-metrics-api</artifactId>
-        </dependency>
         <!-- Managing vulnerable versions of netty from AWS to avoid CVE -->
         <dependency>
             <groupId>io.netty</groupId>
