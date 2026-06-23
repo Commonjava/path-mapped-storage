@@ -59,6 +59,8 @@ public class PathMappedFileManager implements Closeable
 
     private String deduplicatePattern;
 
+    private int consecutiveGcFailures = 0;
+
     public PathMappedFileManager( PathMappedStorageConfig config, PathDB pathDB, PhysicalStore physicalStore )
     {
         this.pathDB = pathDB;
@@ -388,11 +390,23 @@ public class PathMappedFileManager implements Closeable
     {
         try
         {
-            return executeGC();
+            Map<FileInfo, Boolean> result = executeGC();
+            consecutiveGcFailures = 0;
+            return result;
         }
         catch (Exception e)
         {
-            logger.warn("Storage gc hit a problem but will continue to execute next time", e);
+            consecutiveGcFailures++;
+            if ( consecutiveGcFailures >= 3 )
+            {
+                logger.error( "Storage gc failed {} consecutive times. Last error: {} - {}. Manual intervention may be required.",
+                              consecutiveGcFailures, e.getClass().getSimpleName(), e.getMessage(), e );
+            }
+            else
+            {
+                logger.warn( "Storage gc hit a problem (failure {} of 3 before escalation): {} - {}",
+                             consecutiveGcFailures, e.getClass().getSimpleName(), e.getMessage(), e );
+            }
         }
         return emptyMap();
     }
