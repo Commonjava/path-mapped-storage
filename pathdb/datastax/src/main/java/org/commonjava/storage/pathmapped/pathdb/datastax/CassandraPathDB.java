@@ -891,22 +891,39 @@ public class CassandraPathDB
     @Override
     public List<Reclaim> listOrphanedFiles( int limit )
     {
-        // timestamp data type is encoded as the number of milliseconds since epoch
         Date cur = new Date();
-        int partition = getHoursInDay( cur );
         long threshold = getReclaimThreshold( cur, config.getGCGracePeriodInHours() );
-        ResultSet result;
+        ArrayList<Reclaim> ret = new ArrayList<>();
         String baseQuery = "SELECT * FROM " + keyspace + ".reclaim WHERE partition = ? AND deletion < ?";
-        if ( limit > 0 )
+        PreparedStatement stmt = session.prepare( baseQuery + ( limit > 0 ? " limit ?" : "" ) + ";" );
+
+        for ( int partition = 0; partition < 24; partition++ )
         {
-            result = session.execute( baseQuery + " limit ?;", partition, threshold, limit );
+            try
+            {
+                BoundStatement bound;
+                if ( limit > 0 )
+                {
+                    int remaining = limit - ret.size();
+                    if ( remaining <= 0 )
+                    {
+                        break;
+                    }
+                    bound = stmt.bind( partition, threshold, remaining );
+                }
+                else
+                {
+                    bound = stmt.bind( partition, threshold );
+                }
+                ResultSet result = executeSession( bound );
+                Result<DtxReclaim> dtxReclaims = reclaimMapper.map( result );
+                ret.addAll( dtxReclaims.all() );
+            }
+            catch ( Exception e )
+            {
+                logger.warn( "Failed to query reclaim partition {}: {}", partition, e.getMessage() );
+            }
         }
-        else
-        {
-            result = session.execute( baseQuery + ";", partition, threshold );
-        }
-        Result<DtxReclaim> dtxReclaims = reclaimMapper.map( result );
-        ArrayList<Reclaim> ret = new ArrayList<>( dtxReclaims.all() );
         logger.info( "List orphaned files, cur: {}, threshold: {}, limit: {}, size: {}", cur, new Date( threshold ), limit, ret.size() );
         return ret;
     }

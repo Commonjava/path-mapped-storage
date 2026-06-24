@@ -70,7 +70,7 @@ public class CassandraPathDBUtils
                         + "filestorage varchar,"
                         + "checksum varchar,"
                         + "PRIMARY KEY ((filesystem, parentpath), filename)"
-                        + ");";
+                        + ") WITH compaction = {'class': 'LeveledCompactionStrategy', 'sstable_size_in_mb': '160'};";
     }
 
     public static String getSchemaCreateTableReversemap( String keyspace )
@@ -79,7 +79,7 @@ public class CassandraPathDBUtils
                         + "fileid varchar,"
                         + "paths set<text>,"
                         + "PRIMARY KEY (fileid)"
-                        + ");";
+                        + ") WITH compaction = {'class': 'LeveledCompactionStrategy', 'sstable_size_in_mb': '160'};";
     }
 
     public static String getSchemaCreateTableReclaim( String keyspace )
@@ -91,7 +91,8 @@ public class CassandraPathDBUtils
                         + "checksum varchar,"
                         + "storage varchar,"
                         + "PRIMARY KEY (partition, deletion, fileid)"
-                        + ");";
+                        + ") WITH compaction = {'class': 'TimeWindowCompactionStrategy', 'compaction_window_unit': 'HOURS', 'compaction_window_size': '4'}"
+                        + " AND gc_grace_seconds = 14400;";
     }
 
     public static String getSchemaCreateTableFileChecksum( String keyspace )
@@ -101,7 +102,7 @@ public class CassandraPathDBUtils
                         + "fileid varchar,"
                         + "storage varchar,"
                         + "PRIMARY KEY (checksum)"
-                        + ");";
+                        + ") WITH compaction = {'class': 'LeveledCompactionStrategy', 'sstable_size_in_mb': '160'};";
     }
 
     // Since Date.getHours is deprecated, we use this to replace it.
