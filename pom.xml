@@ -56,7 +56,7 @@
         <hibernateVersion>5.4.33.Final</hibernateVersion>
         <h2Version>2.4.240</h2Version>
         <pmd.failOnViolation>false</pmd.failOnViolation>
-        <aws.java.sdk.version>2.21.20</aws.java.sdk.version>
+        <aws.java.sdk.version>2.54.13</aws.java.sdk.version>
     </properties>
 
     <dependencyManagement>
