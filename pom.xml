@@ -54,7 +54,7 @@
         <cassandraVersion>3.12.1</cassandraVersion>
         <cassandraUnitVersion>3.11.2.0</cassandraUnitVersion>
         <hibernateVersion>5.4.33.Final</hibernateVersion>
-        <h2Version>2.4.240</h2Version>
+        <h2Version>2.5.250</h2Version>
         <pmd.failOnViolation>false</pmd.failOnViolation>
         <aws.java.sdk.version>2.21.20</aws.java.sdk.version>
     </properties>
