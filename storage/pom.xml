@@ -77,14 +77,6 @@
             <artifactId>path-mapped-pathdb-jpa</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- web-commons-bom:26 has guava 18. bom versions above that have 29 or 31. This
-            conflicts with cassandra-unit which requires 21 or less -->
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>21.0</version>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>org.cassandraunit</groupId>
             <artifactId>cassandra-unit</artifactId>
@@ -121,5 +113,4 @@
             </plugins>
         </pluginManagement>
     </build>
-
 </project>

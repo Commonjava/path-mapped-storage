@@ -55,14 +55,6 @@
             <artifactId>cassandra-driver-mapping</artifactId>
             <version>${cassandraVersion}</version>
         </dependency>
-        <!-- web-commons-bom:26 has guava 18. bom versions above that have 29 or 31. This
-            conflicts with cassandra-unit which requires 21 or less. Also CassandraPathDB
-            uses code that has been deprecated in later versions of guava -->
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>21.0</version>
-        </dependency>
         <dependency>
             <groupId>org.cassandraunit</groupId>
             <artifactId>cassandra-unit</artifactId>
