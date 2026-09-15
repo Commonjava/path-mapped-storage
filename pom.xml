@@ -52,7 +52,7 @@
         <javaVersion>11</javaVersion>
         <test-forkCount>1</test-forkCount>
         <cassandraVersion>3.12.1</cassandraVersion>
-        <cassandraUnitVersion>3.11.2.0</cassandraUnitVersion>
+        <cassandraUnitVersion>4.3.1.0</cassandraUnitVersion>
         <hibernateVersion>5.4.33.Final</hibernateVersion>
         <h2Version>2.5.250</h2Version>
         <pmd.failOnViolation>false</pmd.failOnViolation>
